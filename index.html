@@ -1,0 +1,275 @@
+<!doctype html>
+<!--[if lt IE 7]>
+    <html class="no-js lt-ie9 lt-ie8 lt-ie7" lang="en">
+    <![endif]-->
+    <!--[if IE 7]>
+        <html class="no-js lt-ie9 lt-ie8" lang="en">
+        <![endif]-->
+        <!--[if IE 8]>
+            <html class="no-js lt-ie9" lang="en">
+            <![endif]-->
+            <!--[if gt IE 8]>
+            <!-->
+            <html class="no-js" lang="en">
+            <!--<![endif]-->
+            
+            <head>
+                <meta charset="utf-8">
+                <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+                <title>Twitter Mutual Friends - Simon Tabor</title>
+                <meta name="description" content="">
+                <meta name="author" content="Simon Tabor">
+                <meta name="viewport" content="width=device-width">
+                <link rel="stylesheet" href="/style.css" type="text/css">
+                <script src="/js/libs/modernizr-2.5.3-respond-1.1.0.min.js"></script>
+            </head>
+            
+            <body>
+                <header>
+                    <div>
+                        <h1>Simon Tabor</h1>
+                        <nav>
+                            <a href="http://simontabor.com">The Cube</a> &middot; 
+                            <a class="active">Twitter Mutuals</a> &middot; 
+                            <a href="http://audio.simontabor.com">Audio</a> &middot; 
+                            <a target="_blank" href="https://twitter.com/simon_tabor">Twitter</a>
+                        </nav>
+                    </div>
+                </header>
+                <div role="main">
+                    <h2>Twitter Mutual Followers</h2>
+                    <form id="usernameform">
+                     <input type="text" id="username" placeholder="Twitter Username" autofocus>
+                     <input type="submit" id="getpeople" value="&raquo;">
+                 </form>
+                 <div id="results" style="display:none">
+                     <p>Hello <span id="hello"></span>, you follow <span id="followingnum"></span> people and <span id="followersnum"></span> people follow you.</p>
+                     <div id="buttons">
+                         <button id="save">Save Followers</button>
+                         <button id="getsaved">Get Saved Followers</button>
+                     </div>
+                     <div id="unfollows">
+                        <p class="unfollowers"></p>
+                        <p class="difference"></p>
+                        <ul></ul>
+
+                    </div>
+                    <h3>These people follow you and you also follow them.</h3>
+                    <h5><span id="totalmatches"><span style="font-size:10px">(loading...)</span></span> people</h5>
+                    <input type="search" id="searchresults" placeholder="Search Results" />
+                    <p id="searchresult"></p>
+                    <div id="matches">
+                    </div>
+                </div>
+            </div>
+            <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+            <script>
+            window.jQuery || document.write('<script src="/js/libs/jquery-1.7.1.min.js"><\/script>')
+            </script>
+            <script src="/js/plugins.js"></script>
+            <script src="/js/script.js"></script>
+            <script>
+            var namesandhandles = [];
+            $('#searchresults').keypress(function (e) {
+                $('#searchresult').text(' ');
+                var num = 0;
+                var search = $('#searchresults').val() + String.fromCharCode(e.keyCode);
+                search = search.toLowerCase();
+                $('#results li').removeClass('found');
+                var matchnames = "";
+                for (var i in namesandhandles) {
+                    if ((namesandhandles[i] == search) || (namesandhandles[i].split(' ')[0] == search) || ((namesandhandles[i].split(' ')[1] == search))) {
+                        num++;
+                        console.log('Found: '+namesandhandles[i]) 
+                        var position = Math.floor(i/2);
+                        var match = $('#results li').get(position);
+                        $(match).addClass('found');
+                        matchnames += $(match).find('p a').text()+', '
+
+                    }
+                }
+                $('#searchresult').text('Found '+matchnames+num+' results');
+
+            })
+$('#usernameform').submit(function (e) {
+    e.preventDefault();
+    if ($('#username').val() !== "") getlists($('#username').val());
+
+})
+var initialrequest, d = {};
+function getlists(username) {
+    $('#save').removeClass('clickable');
+    $('#unfollows').animate({'height':'0px'},300).find('ul').html(' ');
+    namesandhandles = [];
+    window.location.hash = username;
+    $('#username').attr('placeholder','Try another?');
+    $('#results').fadeIn(200);
+    $('#results').css('background','url(/loading.gif) no-repeat 50% 100%');
+    
+    $.getJSON('https://api.twitter.com/1/followers/ids.json?screen_name='+username+'&callback=?', function (data) {
+        $('#followersnum').text(data.ids.length);
+        d.followers = data.ids;
+        var followers = data.ids;
+        initialrequest = $.getJSON('https://api.twitter.com/1/users/lookup.json?screen_name='+username+'&callback=?', function (user_data) {
+            d.user_data = user_data;
+            $('#hello').text(user_data[0].name);
+            if (user_data[0].protected) {
+               $('#results').css({'background':'none','text-align':'center'}).text('Sorry, this Twitter account seems to be protected.');
+
+           }
+       })
+        
+
+        $.getJSON('https://api.twitter.com/1/following/ids.json?screen_name='+username+'&callback=?', function (data) {
+            $('#followingnum').text(data.ids.length);
+            var following = data.ids, compare = {}, matches = [];
+            for (var j in followers) {
+                compare[followers[j]] = followers[j];
+            }
+            for (var i in following) {
+                if (typeof compare[following[i]] != 'undefined') {
+                    matches.push(following[i]);
+                } 
+            }
+            $('#totalmatches').text(matches.length);
+            var repeats = Math.ceil(matches.length/100);
+            var mutualslist = '<ul>', total = 0;
+            var starttime = new Date().getTime();
+            for (var j=1; j<=repeats;j++) {
+
+
+                $.getJSON('https://api.twitter.com/1/users/lookup.json?user_id='+matches.slice((j-1)*100,j*100).toString()+'&callback=?', function (data) {
+
+
+                    console.log(data);
+                    total+= data.length;
+                    for (var i in data) {
+                        mutualslist+='<li><img src="'+data[i].profile_image_url_https+'" title="'+data[i].name+'" /><p>'+data[i].name+'<br><a target="_blank" href="https://twitter.com/'+data[i].screen_name+'">@'+data[i].screen_name+'</a></p></li>';
+                        namesandhandles.push(data[i].name.toLowerCase());
+                        namesandhandles.push(data[i].screen_name.toLowerCase());
+
+                    }
+                    if (total == matches.length) {
+                        console.log('that took ', new Date().getTime() - starttime,'ms');
+                        $('#matches').html(mutualslist+'</ul>');
+                        $('#results').css('background','none');
+                        $('#save').addClass('clickable');
+                    }
+
+                })
+}
+})
+})
+
+
+}
+if (window.location.hash) {
+    getlists(window.location.hash.split('#')[1]);
+    $('#username').attr('placeholder','Try another?');
+    $('#results').fadeIn(200);
+}
+$('#save.clickable').live('click',function() {
+   var send_followers = {};
+   send_followers.lastupdate = new Date().getTime();
+   send_followers.followers = d.followers;
+   localStorage[d.user_data[0].id] = JSON.stringify(send_followers);
+   $('#save').text('Saved!');
+ /*
+ $.ajax({
+    type: 'post',
+    url: "saveFollowers.php",
+    dataType: 'json',
+    data: send_followers
+}).done(function(data) {
+    console.log(data)
+    $('#save').text('Saved!')
+})
+*/
+});
+$('#getsaved').click(function() {
+    $('#unfollows').css('height','auto');
+     /*
+    var get_followers = {};
+    get_followers.twitter_id = d.user_data[0].id;
+   
+    $.ajax({
+        type: 'post',
+        url: "getFollowers.php",
+        dataType: 'json',
+        data: get_followers
+    }).done(function(data) {
+        */
+        var localload = localStorage[d.user_data[0].id];
+
+
+        if (localload !== undefined) {
+                    var data = JSON.parse(localStorage[d.user_data[0].id]);
+            var saved = data.followers;
+            var current = d.followers, compare = {}, nomatches = [];
+            for (var j in current) {
+                compare[current[j]] = current[j];
+            }
+            for (var i in saved) {
+                if (typeof compare[saved[i]] == 'undefined') {
+                    nomatches.push(saved[i]);
+                } 
+            }
+            var saveddate = (new Date(parseInt(data.lastupdate,10))).toString().split(' GMT')[0],
+            timeago = Math.floor(((new Date().getTime()) - data.lastupdate) / 1000 / 60 / 60 / 24),
+            timescale = 'days';
+            if (timeago == 1) {
+                timescale = 'day';
+            }else if (timeago == 0) {
+                timeago = Math.floor(((new Date().getTime()) - data.lastupdate) / 1000 / 60 / 60);
+                timescale = (timeago == 1) ? 'hour' : 'hours';
+                if (timeago == 0) {
+                    timeago = Math.floor(((new Date().getTime()) - data.lastupdate) / 1000 / 60);
+                    timescale = (timeago == 1) ? 'minute' : 'minutes';
+                }
+            }
+            $('#unfollows>p.unfollowers').text(nomatches.length+' people have unfollowed you since '+saveddate+', '+timeago+' '+timescale+' ago');
+            console.log(nomatches);
+            var followerdiff = current.length - saved.length;
+            var gain = (followerdiff < 0) ? 'lost' : 'gained';
+            $('#unfollows>p.difference').text('You have '+gain+' '+Math.abs(followerdiff)+' followers in total.');
+            if (nomatches.length > 1) {
+                var unfollowers = "";
+                $.getJSON('https://api.twitter.com/1/users/lookup.json?user_id='+nomatches.slice(0,100).toString()+'&callback=?', function (data) {
+                    console.log(data);
+                    for (var i in data) {
+                        unfollowers+='<li><img src="'+data[i].profile_image_url_https+'" title="'+data[i].name+'" /><p>'+data[i].name+'<br><a target="_blank" href="https://twitter.com/'+data[i].screen_name+'">@'+data[i].screen_name+'</a></p></li>';
+                    }
+                    $('#unfollows ul').html(unfollowers);
+
+
+                });
+            }
+        }else{
+            alert('No saved records found - please save your followers before trying to retrieve them.');
+        }
+
+
+
+
+  //  })
+
+})
+
+
+</script>
+<script type="text/javascript">
+var GoSquared={};
+GoSquared.acct = "GSN-757634-O";
+(function(w){
+    function gs(){
+        w._gstc_lt=+(new Date); var d=document;
+        var g = d.createElement("script"); g.type = "text/javascript"; g.async = true; g.src = "//d1l6p2sc9645hc.cloudfront.net/tracker.js";
+        var s = d.getElementsByTagName("script")[0]; s.parentNode.insertBefore(g, s);
+    }
+    w.addEventListener?w.addEventListener("load",gs,false):w.attachEvent("onload",gs);
+})(window);
+</script>
+
+</body>
+
+</html>
